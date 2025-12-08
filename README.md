@@ -7,16 +7,127 @@ Throughout this document, we use:
 - `[project dir]`: the root directory of the cloned Nugget repository.
 - `papi install prefix`: the directory where PAPI is installed by the helper scripts.
 
+## Reproducing Paper Experiments
+
+For easy reproducing, we offer auto scripts for each step.
+We expect the Docker image to be used for better environment control.
+In our actual experiments, we ensured to minimize the noises in our measurement by using tools such as `cpuutils` and controlling the system such as fixing the CPU frequency.
+Such things are hard to write an auto scripts to do because different systems might have different versions of the tools and might require different permissions.
+Therefore, in the reproducing scripts, we do not enforce such operations to limit the noises in the measurements.
+
+First, build the Docker image:
+
+```bash
+cd Docker
+make image
+make NUM_CORES_TO_USE=[the max number of cores you want the container to use] WORKDIR=$PWD/.. run
+```
+
+Because building LLVM can take have a big memory usage so setting the `NUM_CORES_TO_USE` to `$(nproc)` might not be ideal depending on the system you use.
+You can read the `/Docker/Makefile` to see details of how the Docker image and container are built.
+
+After getting into the Docker container with the project directory mounted as the workdir, run:
+
+```bash
+chmod +x install.sh
+./install.sh
+```
+
+At the end, the script will output the environment variables that you should set.
+You can set it up by copy, paste, and run in your terminal.
+
+### Preparation and Interval Analysis
+
+#### NPB
+
+```bash
+cd nugget-protocol-NPB
+python3 ae-scripts/preparation_and_interval_analysis.py -d [project directory]
+```
+By default, it runs input class A with 4 threads.
+It allows you to see the whole process quicker.
+You can change the input class and number of threads by passing the options:
+
+```bash
+python3 ae-scripts/preparation_and_interval_analysis.py -d [project directory] -s [input class, i.e. A,B,C...] -t [the number of threads]
+```
+
+At the end of it, you will find the analysis results including the time it takes for each analysis under the `nugget-protocol-NPB/ae-experiments/[the binary of the input class]/[number of threads]`.
+
+For example:
+```terminal
+dev@99494d3119ed:/workdir/nugget-protocol-NPB/ae-experiments/analysis$ ls
+ir_bb_analysis_exe_bt_A  ir_bb_analysis_exe_ep_A  ir_bb_analysis_exe_is_A  ir_bb_analysis_exe_mg_A
+ir_bb_analysis_exe_cg_A  ir_bb_analysis_exe_ft_A  ir_bb_analysis_exe_lu_A  ir_bb_analysis_exe_sp_A
+dev@99494d3119ed:/workdir/nugget-protocol-NPB/ae-experiments/analysis$ ls ir_bb_analysis_exe_bt_A/
+threads-4
+dev@99494d3119ed:/workdir/nugget-protocol-NPB/ae-experiments/analysis$ ls ir_bb_analysis_exe_bt_A/threads-4/
+execution_time.txt  stderr.log  stdout.log analysis-output.csv
+```
+
+The `analysis-output.csv` contains the LLVM IR BBV and the CSV information talked in the paper.
+The `execution_time.txt` contains the time it takes for this analysis to finish.
+
+### Sample Selection
+
+Run k-means and optional random sampling to pick representative regions per benchmark and generate markers:
+
+```bash
+cd nugget-protocol-NPB
+python3 ae-scripts/sample_selection.py -d [project dir] -s [input class] -b "CG EP" -t [threads] --k [num_clusters]
+```
+
+Example:
+
+```bash
+python3 ae-scripts/sample_selection.py -d [project dir]
+```
+
+The outputs are under the `ae-experiments` directory. 
+
+### Nugget Creation and Sample Validation
+
+Build nugget and naive binaries for the selected regions, run them, and emit measurement/prediction CSVs:
+
+```bash
+cd nugget-protocol-NPB
+python3 ae-scripts/nugget_creation_and_validaton.py -d [project dir] -s [input class] -b "CG EP" -t [threads] --grace-perc 0.98
+```
+
+What happens:
+- Configures and builds nugget and naive targets (using the selections/markers produced above).
+- Runs naive binaries to record baselines, then runs each nugget binary (handles nested executable paths).
+- Aggregates runtimes into `ae-experiments/nugget-measurement/measurements.csv`.
+- Computes program-level predicted runtime using k-means cluster weights and writes prediction errors (k-means and random) to `ae-experiments/nugget-measurement/prediction-error.csv`.
+
+Key options:
+- `-s/--size`: input class (A/B/C...).
+- `-b/--benchmarks`: space/comma/semicolon separated list, e.g., `"CG EP"`.
+- `-t/--threads`: threads for the runs.
+- `--grace-perc`: grace percentage used in marker generation (matches sample selection step).
+
+### gem5 simulation
+
+Please see under the gem5-experiment directory.
 
 ## Preparation
 
 ### 1. Dependencies and Tools
 
-Make sure the following prerequisite is installed and available in your `PATH`:
+Make sure the following prerequisite is installed:
 
 ```bash
-cmake
+sudo apt install build-essential scons python3-dev git pre-commit zlib1g zlib1g-dev \
+    libprotobuf-dev protobuf-compiler libprotoc-dev libgoogle-perftools-dev \
+    libboost-all-dev  libhdf5-serial-dev python3-pydot python3-venv python3-tk mypy \
+    m4 libcapstone-dev libpng-dev libelf-dev pkg-config wget cmake doxygen clang-format \
+    libncurses-dev
 ```
+
+Since Nugget measures using `perf`, so `perf` should be setup with correct permission in the system using for experiments.
+
+We offer a Docker image that you can find in `/Docker` to have the above prerequisite installed.
+We also has an `install.sh` that helps to install the LLVM compiler and the PAPI tool.
 
 #### 1.1 LLVM with Nugget passes
 
@@ -24,10 +135,10 @@ This builds LLVM with the Nugget analysis and transformation passes.
 
 ```bash
 cd [project dir]/llvm-project
-./build_cmd.sh [install prefix]
+./build_cmd.sh [llvm install prefix]
 ```
 
-* Replace `[install prefix]` with the directory where you want LLVM to be installed.
+* Replace `[llvm install prefix]` with the directory where you want LLVM to be installed.
 * After this step, your Nugget-enabled `clang`/`opt` etc. will live under that install prefix.
 
 ##### 1.1.1 Find the supported features 
@@ -36,14 +147,17 @@ Different machine supports different features with LLVM backend, running this sc
 
 ```bash
 cd [project dir]/nugget_util/cmake/check-cpu-features
-LLVM_BIN=[install prefix]/bin LLVM_LIB=[install prefix]/lib LLVM_INCLUDE=[install prefix]/include make
+LLVM_BIN=[llvm install prefix]/bin LLVM_LIB=[llvm install prefix]/lib LLVM_INCLUDE=[llvm install prefix]/include make
 ./check-cpu-features
 ```
+
+The reason why we separated `LLVM_BIN`, `LLVM_LIB`, and `LLVM_INCLUDE` is when using package LLVM, these three can be at different directories.
+For example, `/usr/bin`, `/usr/lib/llvm-19/lib`, and `/usr/include/llvm-19/llvm`.
 
 This is one example output you will find in `llc-command.txt` after running the above commands:
 
 ```bash
-╰─± cat llc-command.txt
+$ cat llc-command.txt
 -mcpu=neoverse-n1 -mtriple=aarch64-unknown-linux-gnu -mattr="+fp-armv8,+lse,+neon,+crc,+crypto"
 ```
 

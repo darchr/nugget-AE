@@ -1,0 +1,12 @@
+[submodule "nugget_util"]
+	path = nugget_util
+	url = https://github.com/studyztp/nugget_util.git
+[submodule "llvm-project"]
+	path = llvm-project
+	url = https://github.com/studyztp/llvm-project.git
+[submodule "nugget-protocol-NPB"]
+	path = nugget-protocol-NPB
+	url = https://github.com/darchr/nugget-protocol-NPB.git
+[submodule "nugget-protocol-lsms"]
+	path = nugget-protocol-lsms
+	url = https://github.com/darchr/nugget-protocol-lsms.git
