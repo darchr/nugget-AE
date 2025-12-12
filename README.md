@@ -180,7 +180,7 @@ sudo apt install build-essential scons python3-dev git pre-commit zlib1g zlib1g-
     libprotobuf-dev protobuf-compiler libprotoc-dev libgoogle-perftools-dev \
     libboost-all-dev libhdf5-serial-dev python3-pydot python3-venv python3-tk mypy \
     m4 libcapstone-dev libpng-dev libelf-dev pkg-config wget cmake doxygen clang-format \
-    libncurses-dev
+    libncurses-dev python3-venv python3-pybind11 pybind11-dev
 ```
 
 Nugget uses `perf` for measurements, so `perf` must be installed and configured with sufficient permissions on the system where you run experiments.

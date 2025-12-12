@@ -15,8 +15,8 @@ RUN mkdir -p /workdir \
     && chown ${UID}:${GID} /workdir
 
 # Update and install libs
-RUN apt-get update && apt-get install -y libncurses-dev python3-venv && rm -rf /var/lib/apt/lists/*
-RUN python3 -m venv /opt/venv && /opt/venv/bin/pip install --no-cache-dir pandas scikit-learn
+RUN apt-get update && apt-get install -y libncurses-dev python3-venv python3-pybind11 pybind11-dev gdb && rm -rf /var/lib/apt/lists/*
+RUN python3 -m venv /opt/venv && /opt/venv/bin/pip install --no-cache-dir pandas scikit-learn pybind11 wheel setuptools pip
 ENV PATH="/opt/venv/bin:${PATH}"
 
 # Install Python deps
