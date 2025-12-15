@@ -252,6 +252,24 @@ Key options:
 * `-t/--threads`: number of threads
 * `--grace-perc`: must match the value used during marker generation / sample selection
 
+#### 3.1.1 Run it with another architecture
+
+  Here is an example of how you can run the nuggets and evaluate them in another architecture.
+  Assuming that you analyzed and selected the samples in an `aarch64` machine and now want to measure the nuggets in a `x86_64` machine:
+
+  ```bash
+  cd nugget-protocol-NPB
+  python3 ae-script/nugget_creation_and_validaton.py -d "$PROJECT_DIR" -a x86_64 --selection-architecture aarch64
+  ```
+
+  The script will automatically use the information from 
+  ```text
+  nugget-protocol-NPB/ae-experiments/sample-selection/threads-<T>/aarch64/k-means/<benchmark>_A/
+  nugget-protocol-NPB/ae-experiments/sample-selection/threads-<T>/aarch64/random/<benchmark>_A/
+  nugget-protocol-NPB/ae-experiments/create-markers/threads-<T>/<grace-perc>/aarch64/<benchmark>_A/input-files/
+  ```
+  and the existing LLVM BC files from `ae-build/llvm-bc` to compile `x86_64` nuggets and measure them.
+
 ---
 
 ### 3.2 LSMS (requires PAPI event combinations)
