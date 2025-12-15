@@ -28,6 +28,10 @@ RUN apt-get update && apt-get install -y \
     openmpi-bin \
     libopenmpi-dev \
     libomp-dev \
+    unzip \
+    qemu-system \
+    qemu-utils \
+    qemu-kvm libvirt-daemon-system libvirt-clients bridge-utils \
     && rm -rf /var/lib/apt/lists/*
 
 # Python venv + deps
