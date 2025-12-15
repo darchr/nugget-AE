@@ -3,7 +3,6 @@ name: Release zip (with submodules)
 on:
   push:
     tags:
-      - "v*"
       - "*"
 
 permissions:
@@ -13,41 +12,38 @@ jobs:
   zip-release:
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout (recursive submodules)
+      - name: Checkout (with submodules, recursive)
         uses: actions/checkout@v4
         with:
           fetch-depth: 0
           submodules: recursive
-          lfs: true   # safe even if you don't use LFS
 
-      - name: Debug: confirm submodules are populated
+      - name: Ensure submodules are initialized
         run: |
-          git submodule status --recursive
-          echo "Top-level tree:"
-          ls -la
-          echo "Submodule trees:"
-          git submodule foreach --recursive 'echo "== $name =="; ls -la | head -n 50'
+          git submodule sync --recursive
+          git submodule update --init --recursive
 
-      - name: Stage a clean folder and zip it
+      - name: Build zip (includes submodule contents)
         run: |
-          REPO="${GITHUB_REPOSITORY#*/}"
-          TAG="${GITHUB_REF_NAME}"
-          STAGE="${REPO}-${TAG}"
-          OUT="${STAGE}.zip"
+          repo="${GITHUB_REPOSITORY#*/}"
+          tag="${GITHUB_REF_NAME}"
 
-          mkdir -p "$STAGE"
-          rsync -a --delete \
+          stage="${RUNNER_TEMP}/${repo}-${tag}"
+          mkdir -p "$stage"
+
+          # Copy working tree into staging (exclude git metadata)
+          rsync -a \
             --exclude ".git" \
-            --exclude ".github/workflows" \
-            --exclude ".gitmodules" \
             --exclude "**/.git" \
             --exclude "**/.git/**" \
-            ./ "$STAGE/"
+            ./ "$stage/"
 
-          zip -r "$OUT" "$STAGE"
-          echo "OUT=$OUT" >> "$GITHUB_ENV"
+          out="${GITHUB_WORKSPACE}/${repo}-${tag}.zip"
+          (cd "${RUNNER_TEMP}" && zip -r "$out" "${repo}-${tag}")
+
+          echo "ZIP=$out" >> "$GITHUB_ENV"
 
       - name: Create GitHub Release + upload zip
         uses: softprops/action-gh-release@v2
         with:
-          files: ${{ env.OUT }}
+          files: ${{ env.ZIP }}
