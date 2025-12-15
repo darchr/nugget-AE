@@ -56,13 +56,20 @@ python3 ae-scripts/preparation_and_interval_analysis.py -d [project dir]
 
 By default, this runs input class **A** with **4 threads** to allow you to see the full pipeline more quickly.
 
-You can change the input class and number of threads:
-
+You can find the options by running:
 ```bash
-python3 ae-scripts/preparation_and_interval_analysis.py \
-    -d [project dir] \
-    -s [input class, e.g., A,B,C,...] \
-    -t [number of threads]
+╰─± python3 ae-scripts/preparation_and_interval_analysis.py --help
+usage: preparation_and_interval_analysis.py [-h] [--project_dir PROJECT_DIR] [--size SIZE] [--num-threads NUM_THREADS]
+
+Build and run NPB IR BB analysis binaries.
+
+options:
+  -h, --help            show this help message and exit
+  --project_dir PROJECT_DIR, -d PROJECT_DIR
+                        Path to project root containing nugget-protocol-NPB
+  --size SIZE, -s SIZE  The input class of NPB
+  --num-threads NUM_THREADS, -t NUM_THREADS
+                        The number of threads used for the experiments.
 ```
 
 Outputs:
@@ -88,81 +95,196 @@ execution_time.txt  stderr.log  stdout.log  analysis-output.csv
 * `analysis-output.csv` contains the LLVM IR basic-block vectors and CSV information referenced in the paper.
 * `execution_time.txt` contains the runtime of the analysis itself.
 
+
+#### 1.2 LSMS
+
+Similar to NPB but LSMS only supports single-threaded experiments.
+
+```bash
+cd nugget-protocol-lsms
+python3 ae-scripts/preparation_and_interval_analysis.py -d [project dir]
+```
+
+You can find the options by running 
+```bash
+╰─± python3 ae-script/preparation_and_interval_analysis.py --help
+usage: preparation_and_interval_analysis.py [-h] [--project-dir PROJECT_DIR] [--input-directory INPUT_DIRECTORY] [--input-command INPUT_COMMAND] [--region-length REGION_LENGTH]
+
+Build and run NPB IR BB analysis binaries.
+
+options:
+  -h, --help            show this help message and exit
+  --project-dir PROJECT_DIR, -d PROJECT_DIR
+                        Path to project root containing nugget-protocol-NPB
+  --input-directory INPUT_DIRECTORY, -r INPUT_DIRECTORY
+                        Relative path to input directory from project root. (default: 'ae-script/input')
+  --input-command INPUT_COMMAND, -c INPUT_COMMAND
+                        Input command to run LSMS. (default: 'i_lsms')
+  --region-length REGION_LENGTH, -l REGION_LENGTH
+                        Region length for basic block profiling. (default: 100,000,000)
+```
+
+Outputs:
+
+* Analysis results (including per-analysis runtime) are under:
+
+  ```text
+  nugget-protocol-lsms/ae-experiments/[input-command]
+  ```
+
+
 ---
 
 ### 2. Sample Selection
 
-Run k-means (and optional random sampling) to pick representative regions per benchmark and generate markers:
+#### 2.1 NPB
 
-```bash
-cd nugget-protocol-NPB
-python3 ae-scripts/sample_selection.py \
-    -d [project dir] \
-    -s [input class] \
-    -b "CG EP" \
-    -t [threads] \
-    --k [num_clusters]
-```
+  Run k-means (and optional random sampling) to pick representative regions per benchmark and generate markers:
 
-Minimal example (uses defaults for size, benchmarks, etc.):
+  ```bash
+  cd nugget-protocol-NPB
+  python3 ae-scripts/sample_selection.py \
+      -d [project dir] \
+      -s [input class] \
+      -b "CG EP" \
+      -t [threads] \
+      --k [num_clusters]
+  ```
 
-```bash
-python3 ae-scripts/sample_selection.py -d [project dir]
-```
+  Minimal example (uses defaults for size, benchmarks, etc.):
 
-If time is tight, we recommend using `--use-random-linear-projections` option because using the default PCA projection can take a long time for BBV with large dimensions.
+  ```bash
+  python3 ae-scripts/sample_selection.py -d [project dir]
+  ```
 
-For example:
-```bash
-python3 ae-scripts/sample_selection.py -d [project dir] --use-random-linear-projections
-```
+  If time is tight, we recommend using `--use-random-linear-projections` option because using the default PCA projection can take a long time for BBV with large dimensions.
 
-Outputs are written under:
+  For example:
+  ```bash
+  python3 ae-scripts/sample_selection.py -d [project dir] --use-random-linear-projections
+  ```
 
-```text
-nugget-protocol-NPB/ae-experiments
-```
+  Outputs are written under:
+
+  ```text
+  nugget-protocol-NPB/ae-experiments/create-markers
+  nugget-protocol-NPB/ae-experiments/sample-selection
+  ```
+
+#### 2.2 LSMS
+
+  This step is also similar to the NPB one above.
+
+  ```bash
+  cd nugget-protocol-lsms
+  python3 ae-script/sample_selection.py -d [project dir]
+  ```
+
+  Outputs are written under:
+
+  ```text
+  nugget-protocol-NPB/ae-experiments/create-markers
+  nugget-protocol-NPB/ae-experiments/sample-selection
+  ```
 
 ---
 
 ### 3. Nugget Creation and Sample Validation
 
-Build Nugget and naive binaries for the selected regions, run them, and emit measurement/prediction CSVs:
+#### 3.1 NPB 
 
-```bash
-cd nugget-protocol-NPB
-python3 ae-scripts/nugget_creation_and_validaton.py \
-    -d [project dir] \
-    -s [input class] \
-    -b "CG EP" \
-    -t [threads] \
-    --grace-perc [a percentage]
-```
+  Build Nugget and naive binaries for the selected regions, run them, and emit measurement/prediction CSVs:
 
-What this script does:
-
-* Configures and builds Nugget and naive targets using the selections/markers from the previous step.
-
-* Runs naive binaries to record baseline runtimes, then runs each Nugget binary (handling nested executable paths).
-
-* Aggregates runtimes into:
-
-  ```text
-  ae-experiments/nugget-measurement/measurements.csv
+  ```bash
+  cd nugget-protocol-NPB
+  python3 ae-scripts/nugget_creation_and_validaton.py \
+      -d [project dir] \
+      -s [input class] \
+      -b "CG EP" \
+      -t [threads] \
+      --grace-perc [a percentage]
   ```
 
-* Computes program-level predicted runtimes using k-means cluster weights and writes prediction errors (k-means and random) to:
+  What this script does:
 
-  ```text
-  ae-experiments/nugget-measurement/prediction-error.csv
+  * Configures and builds Nugget and naive targets using the selections/markers from the previous step.
+
+  * Runs naive binaries to record baseline runtimes, then runs each Nugget binary (handling nested executable paths).
+
+  * Aggregates runtimes into:
+
+    ```text
+    nugget-protocol-NPB/ae-experiments/nugget-measurement/measurements.csv
+    ```
+
+  * Computes program-level predicted runtimes using k-means cluster weights and writes prediction errors (k-means and random) to:
+
+    ```text
+    nugget-protocol-NPB/ae-experiments/nugget-measurement/prediction-error.csv
+    ```
+
+  Key options:
+
+  * `-s/--size` – input class (A/B/C/…).
+  * `-b/--benchmarks` – space/comma/semicolon-separated list, e.g. `"CG EP"` or `"CG,EP"`.
+  * `-t/--threads` – number of threads.
+  * `--grace-perc` – grace percentage used in marker generation; should match the value used in sample selection.
+
+#### 3.2 LSMS
+
+  For LSMS, we need an extra information, which is the PAPI event combos.
+  PAPI events are the perf events we can get from the machine. 
+  Not all machines support PAPI, for example, as for today (12/14/2025), the latest GitHub version PAPI doesn't support any events on `13th Gen Intel(R) Core(TM) i7-13700`.
+  Similar issues are reported in the PAPI GitHub repo, for example, [link](https://github.com/icl-utk-edu/papi/issues/131).
+  
+  We have an autometic script that helps to extra the best combinations out of all avaiale PAPI events and also the avialbe performance registers.
+  Please see [1.3 Test and Generate Event Combinations](#13-test-and-generate-event-combinations) for more detailed explanation on how the auto scripts work.
+
+  The simple command:
+  ```bash
+  cd nugget_util/hook_helper/other_tools/papi
+  ./test_papi_combos [# of events per run] $PWD/[system arch]/bin/papi_avail [output file name]
+  ```
+  If no output filename is inputted, then the output file name is default as `papi_combo_cover.txt`.
+  If no combo is found, you will need to reduce the `# of events per run`, but it also means that you will need to run more iterations for a single binary in order to measure all the avaialbe hardware performance events.
+
+  After having the `papi_combo_cover.txt` or the output file in your custom location, we can now run the nugget and naive measurement just like in the NPB part.
+
+  Here is the simple commands:
+  ```bash
+  cd nugget-protocol-lsms
+  python3 ae-script/nugget_creation_and_validaton.py -d [project dir] -p [project dir]/nugget_util/hook_helper/other_tools/papi/papi_combo_cover.txt
   ```
 
-Key options:
+  Just like all the scripts we used so far, you can check out what other options you can change by running `--help`. For example:
 
-* `-s/--size` – input class (A/B/C/…).
-* `-b/--benchmarks` – space/comma/semicolon-separated list, e.g. `"CG EP"` or `"CG,EP"`.
-* `-t/--threads` – number of threads.
-* `--grace-perc` – grace percentage used in marker generation; should match the value used in sample selection.
+  ```bash
+  ╰─± python3 ae-script/nugget_creation_and_validaton.py --help
+  usage: nugget_creation_and_validaton.py [-h] --project_dir PROJECT_DIR [--grace-perc GRACE_PERC] [--input-command INPUT_COMMAND] [--input-directory INPUT_DIRECTORY]
+                                          --papi-combo-file-path PAPI_COMBO_FILE_PATH [--skip-build]
+
+  Create and validate nuggets/naive binaries and measure runtime.
+
+  options:
+    -h, --help            show this help message and exit
+    --project_dir PROJECT_DIR, -d PROJECT_DIR
+                          Path to project root containing nugget-protocol-NPB
+    --grace-perc GRACE_PERC
+                          Grace percentage used in markers. (default: 0.98)
+    --input-command INPUT_COMMAND, -c INPUT_COMMAND
+                          Input command to run LSMS. (default: 'i_lsms')
+    --input-directory INPUT_DIRECTORY, -r INPUT_DIRECTORY
+                          Relative path to input directory from project root. (default: 'ae-script/input')
+    --papi-combo-file-path PAPI_COMBO_FILE_PATH, -p PAPI_COMBO_FILE_PATH
+                          Path to papi event combination coverage file.
+    --skip-build          Skip the build step if set.
+  ```
+
+  You will find all the mesurements and the prediction errors of each method in
+    ```text
+    nugget-protocol-lsms/ae-experiments/nugget-measurement/measurements.csv
+    nugget-protocol-lsms/ae-experiments/nugget-measurement/prediction-error.csv
+    ```
 
 ---
 
@@ -307,7 +429,7 @@ You must keep `LD_LIBRARY_PATH` set in any shell where you use this PAPI build.
 Example command:
 
 ```bash
-./test_papi_combos 6 $PWD/aarch64/bin/papi_avail
+./test_papi_combos 6 $PWD/aarch64/bin/papi_avail [output file name]
 ```
 
 Possible output (truncated):
@@ -339,6 +461,7 @@ What `test_papi_combos` does:
   1. Enumerates possible event combinations of size `[# of events per run]`.
   2. Filters to combinations supported by the hardware.
   3. Finds a minimal set of combinations that covers all supported events.
+  4. Output the minimal set of combinations to the output file path. If path not specified, then it outputs to `papi_combo_cover.txt`.
 
 In the example above:
 
@@ -395,4 +518,3 @@ cd [project dir]/nugget_util/hook_helper/other_tools/sniper
 make
 ```
 
-```
