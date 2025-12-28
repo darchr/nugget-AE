@@ -346,7 +346,7 @@ Run sample selection and marker creation.
 options:
   -h, --help            show this help message and exit
   --project-dir -d      Path to project root containing nugget-protocol-lsms (required)
-  --num-regions -n      Number of k nuggets for clustering (default: 30)
+  --num-regions -n      Number of k nuggets for clustering (default: 50)
   --random-seed         Seed for random region selection (default: 627)
   --grace-perc          Grace percentage for marker creation (default: 0.98)
   --region-length       Region length for marker creation (default: 100000000)
